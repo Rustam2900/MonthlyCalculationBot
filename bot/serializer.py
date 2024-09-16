@@ -10,7 +10,6 @@ class UserSerializer(serializers.ModelSerializer):
             'telegram_id',  # Ushbu qatorni qo'shish kerak
             'name',
             'username',
-
         ]
 
 
