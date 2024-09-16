@@ -16,5 +16,8 @@ async def send_welcome(message: types.Message):
         name=message.from_user.first_name,
         username=message.from_user.username
     )
+    print("##############")
+    print(response_message)
+    print("##############")
 
-    await message.answer(text=f"sizdan oldigan malumotlaimiz:\n\n {response_message}", reply_markup=main_menu())
+    await message.answer(text=f"sizdan oldigan malumotlaimiz:\n\n {response_message}", reply_markup=None)
