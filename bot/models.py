@@ -12,7 +12,7 @@ class User(models.Model):
 
 
 class MandatoryUser(models.Model):
-    chat_id = models.ForeignKey(User, on_delete=models.CASCADE, related_name='mandatory')
+    chat_id = models.ForeignKey(User, on_delete=models.CASCADE, related_name='mandatory', null=True, blank=True)
     name = models.CharField(max_length=100, null=True, blank=True)
     url = models.URLField(max_length=200)
 

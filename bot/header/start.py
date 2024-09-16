@@ -3,7 +3,7 @@ import logging
 from aiogram import Router, types
 from aiogram.filters import CommandStart
 
-from bot.header.api import create_user
+from bot.header.api import create_user, create_channels_buttons
 
 router = Router()
 logger = logging.getLogger(__name__)
@@ -20,4 +20,5 @@ async def send_welcome(message: types.Message):
     print(response_message)
     print("##############")
 
-    await message.answer(text=f"sizdan oldigan malumotlaimiz:\n\n {response_message}", reply_markup=None)
+    await message.answer(text=f"sizdan oldigan malumotlaimiz:\n\n {response_message}",
+                         reply_markup=await create_channels_buttons())
