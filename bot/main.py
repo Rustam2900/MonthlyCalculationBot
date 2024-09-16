@@ -16,10 +16,14 @@ bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTM
 
 async def main() -> None:
     dp = Dispatcher()
-
     dp.include_router(router)
 
-    await dp.start_polling(bot)
+    try:
+        await dp.start_polling(bot, skip_updates=True)
+    except asyncio.CancelledError:
+        logging.info("Polling stopped.")
+    finally:
+        await bot.session.close()
 
 
 if __name__ == "__main__":
