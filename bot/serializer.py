@@ -7,7 +7,7 @@ class UserSerializer(serializers.ModelSerializer):
         model = User
         fields = [
             'id',
-            'telegram_id',  # Ushbu qatorni qo'shish kerak
+            'telegram_id',
             'name',
             'username',
         ]

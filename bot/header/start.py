@@ -22,9 +22,6 @@ async def send_welcome(message: types.Message):
             name=message.from_user.first_name,
             username=message.from_user.username
         )
-        print("##############")
-        print(response_message)
-        print("##############")
         await message.answer(text=START_TEXT,
                              reply_markup=await create_channels_buttons())
     else:
