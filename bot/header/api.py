@@ -58,12 +58,14 @@ async def get_mandatory_channels():
             return []
 
 
-async def create_channels_buttons():
-    channels = await get_mandatory_channels()
+async def create_channels_buttons(channels):
     buttons = [
-        [InlineKeyboardButton(text=channel['name'], url=channel['url']) for channel in channels],
-        [InlineKeyboardButton(text="Azolikni tekshirish ✔️", callback_data="check_subscription")]
+        [InlineKeyboardButton(text=channel['name'], url=channel['url'])]
+        for channel in channels
     ]
+    buttons.append(
+        [InlineKeyboardButton(text="Azolikni tekshirish ✔️", callback_data="check_subscription")]
+    )
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 

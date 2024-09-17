@@ -1,7 +1,7 @@
 import asyncio
 import logging
 
-from aiogram import Router, types
+from aiogram import Router, types, Bot
 from aiogram.filters import CommandStart
 from aiogram.enums import ParseMode
 from aiogram.utils.markdown import bold
@@ -12,7 +12,6 @@ from bot.keyboard.keybord import home_buttons
 
 router = Router()
 logger = logging.getLogger(__name__)
-
 
 
 @router.message(CommandStart())
@@ -26,46 +25,29 @@ async def send_welcome(message: types.Message):
     status = await save_user_data(user_data)
 
     if status in (200, 201):
-        if status == 201:
-            channels = await fetch_channels()
-            tasks = [check_membership(user_data['telegram_id'], channel['channel_id']) for channel in channels]
-            results = await asyncio.gather(*tasks)
+        channels = await fetch_channels()
+        tasks = [check_membership(user_data['telegram_id'], channel['channel_id']) for channel in channels]
+        results = await asyncio.gather(*tasks)
 
-            if all(results):
-                buttons = await home_buttons()
-                await message.answer(
-                    bold("Xizmatlardan birini tanlang"),
-                    parse_mode=ParseMode.MARKDOWN,
-                    reply_markup=buttons
-                )
-            else:
-                buttons = await create_channels_buttons()
-                await message.answer(
-                    bold(START_TEXT),
-                    parse_mode=ParseMode.MARKDOWN,
-                    reply_markup=buttons
-                )
+        if all(results):
+            # Foydalanuvchi barcha kanallarga obuna bo'lgan
+            buttons = await home_buttons()
+            await message.answer(
+                bold("Xizmatlardan birini tanlang"),
+                parse_mode=ParseMode.MARKDOWN,
+                reply_markup=buttons
+            )
         else:
-            channels = await fetch_channels()
-            tasks = [check_membership(user_data['telegram_id'], channel['channel_id']) for channel in channels]
-            results = await asyncio.gather(*tasks)
-
-            if all(results):
-                buttons = await home_buttons()
-                await message.answer(
-                    bold("Xizmatlardan birini tanlang"),
-                    parse_mode=ParseMode.MARKDOWN,
-                    reply_markup=buttons
-                )
-            else:
-                buttons = await create_channels_buttons()
-                await message.answer(
-                    bold(START_TEXT),
-                    parse_mode=ParseMode.MARKDOWN,
-                    reply_markup=buttons
-                )
+            # Foydalanuvchi obuna bo'lmagan kanallarni topamiz
+            unsubscribed_channels = [channel for channel, result in zip(channels, results) if not result]
+            buttons = await create_channels_buttons(unsubscribed_channels)
+            await message.answer(
+                bold("Iltimos, quyidagi kanallarga obuna bo'ling:"),
+                parse_mode=ParseMode.MARKDOWN,
+                reply_markup=buttons
+            )
     else:
-        await message.answer("error")
+        await message.answer("Error")
         logger.error(f"Failed to save user data: {user_data}")
 
 
@@ -78,15 +60,25 @@ async def check_subscription(call: types.CallbackQuery):
     results = await asyncio.gather(*tasks)
 
     if all(results):
+        # Foydalanuvchi barcha kanallarga obuna bo'lgan
         buttons = await home_buttons()
         await call.message.edit_text(
             "Xizmatlardan birini tanlang",
             reply_markup=buttons
         )
     else:
-        buttons = await create_channels_buttons()
+        # Obuna bo'lmagan kanallarni topamiz
+        unsubscribed_channels = [channel for channel, result in zip(channels, results) if not result]
+        buttons = await create_channels_buttons(unsubscribed_channels)
         await call.message.edit_text(
-            bold(START_TEXT),
+            bold("Iltimos, quyidagi kanallarga obuna bo'ling:"),
             parse_mode=ParseMode.MARKDOWN,
             reply_markup=buttons
         )
+
+# @router.message(CommandStart())
+# async def on_start(message: types.Message, bot: Bot):
+#     channel_username = '@Rustam_python_bot'  # Kanalning username ni kiriting
+#     channel = await bot.get_chat(channel_username)
+#     channel_id = channel.id
+#     await message.reply(f"Kanal ID: {channel_id}")
