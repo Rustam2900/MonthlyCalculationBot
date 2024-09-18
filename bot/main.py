@@ -7,9 +7,11 @@ from aiogram.enums import ParseMode
 
 from bot.config import BOT_TOKEN
 from bot.header.start import router as router_start
+from bot.header.orders import router as router_order
 
 router = Router()
 router.include_router(router_start)
+router.include_router(router_order)
 
 bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
 

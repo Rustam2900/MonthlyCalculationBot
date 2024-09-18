@@ -8,7 +8,7 @@ from aiogram.utils.markdown import bold
 
 from bot.conustant import START_TEXT
 from bot.header.api import create_channels_buttons, save_user_data, check_membership, fetch_channels
-from bot.keyboard.keybord import home_buttons
+from bot.keyboard.keybord import home_buttons, category_buttons
 
 router = Router()
 logger = logging.getLogger(__name__)
@@ -73,45 +73,9 @@ async def check_subscription(call: types.CallbackQuery):
             reply_markup=buttons
         )
 
-
 # @router.message(CommandStart())
 # async def on_start(message: types.Message, bot: Bot):
 #     channel_username = '@Rustam_python_bot'  # Kanalning username ni kiriting
 #     channel = await bot.get_chat(channel_username)
 #     channel_id = channel.id
 #     await message.reply(f"Kanal ID: {channel_id}")
-
-@router.callback_query(lambda c: c.data in ['soatbay'])
-async def process_callback(callback_query: types.CallbackQuery, bot: Bot):
-    await bot.answer_callback_query(callback_query.id)
-    await bot.send_message(callback_query.from_user.id, "Salom soatbay")
-
-
-@router.callback_query(lambda c: c.data in ['home_education'])
-async def process_callback(callback_query: types.CallbackQuery, bot: Bot):
-    await bot.answer_callback_query(callback_query.id)
-    await bot.send_message(callback_query.from_user.id, "Salom uyda_talim")
-
-
-@router.callback_query(lambda c: c.data in ['high_class'])
-async def process_callback(callback_query: types.CallbackQuery, bot: Bot):
-    await bot.answer_callback_query(callback_query.id)
-    await bot.send_message(callback_query.from_user.id, "Salom yuqori_sinf")
-
-
-@router.callback_query(lambda c: c.data in ['primary_class'])
-async def process_callback(callback_query: types.CallbackQuery, bot: Bot):
-    await bot.answer_callback_query(callback_query.id)
-    await bot.send_message(callback_query.from_user.id, "Salom boshlangich_sinf")
-
-
-@router.callback_query(lambda c: c.data in ['decree'])
-async def process_callback(callback_query: types.CallbackQuery, bot: Bot):
-    await bot.answer_callback_query(callback_query.id)
-    await bot.send_message(callback_query.from_user.id, "Salom dekret")
-
-
-@router.callback_query(lambda c: c.data in ['working'])
-async def process_callback(callback_query: types.CallbackQuery, bot: Bot):
-    await bot.answer_callback_query(callback_query.id)
-    await bot.send_message(callback_query.from_user.id, "Salom mehnat_tatili")

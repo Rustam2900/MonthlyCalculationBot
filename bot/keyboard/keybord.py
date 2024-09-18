@@ -1,6 +1,6 @@
-from aiogram.types import KeyboardButton, ReplyKeyboardMarkup, InlineKeyboardButton, InlineKeyboardMarkup
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
-from bot.conustant import SOATBAY_TEXT, HOMEEDUCATION_TEXT, HIGHCLASS_TEXT, PRIMARYCLASS_TEXT, DECREE_TEXT, WORKING_TEXT
+from bot.conustant import *
 
 
 async def home_buttons():
@@ -14,13 +14,46 @@ async def home_buttons():
     ]
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
-# async def home_buttons():
-#     buttons = [
-#         [KeyboardButton(text=SOATBAY_TEXT)],
-#         [KeyboardButton(text=HOMEEDUCATION_TEXT)],
-#         [KeyboardButton(text=HIGHCLASS_TEXT)],
-#         [KeyboardButton(text=PRIMARYCLASS_TEXT)],
-#         [KeyboardButton(text=DECREE_TEXT)],
-#         [KeyboardButton(text=WORKING_TEXT)],
-#     ]
-#     return ReplyKeyboardMarkup(keyboard=buttons, resize_keyboard=True, one_time_keyboard=True)
+
+async def category_buttons():
+    buttons = [
+        [InlineKeyboardButton(text=HIGH_CATEGORY_TEXT, callback_data='high_category')],
+        [
+            InlineKeyboardButton(text=CATEGORY_1_TEXT, callback_data='category_1'),
+            InlineKeyboardButton(text=CATEGORY_2_TEXT, callback_data='category_2')
+        ],
+        [
+            InlineKeyboardButton(text=SPECIALIST_TEXT, callback_data='specialist'),
+            InlineKeyboardButton(text=MIDDLE_SPECIALIST_TEXT, callback_data='middle_specialist')
+        ],
+        [InlineKeyboardButton(text=BACK_TEXT, callback_data='back')]
+    ]
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
+
+
+async def confirmation_buttons():
+    buttons = [
+        [
+            InlineKeyboardButton(text=YES_TEXT, callback_data='yes'),
+            InlineKeyboardButton(text=NO_TEXT, callback_data='no')
+        ],
+        [InlineKeyboardButton(text=BACK_TEXT, callback_data='back')]
+    ]
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
+
+
+async def beck_buttons():
+    buttons = [
+
+        [InlineKeyboardButton(text=BACK_TEXT, callback_data='back')]
+    ]
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
+
+
+async def beck_days_buttons():
+    buttons = [
+        [InlineKeyboardButton(text="24 kun", callback_data='24days')],
+        [InlineKeyboardButton(text="36 kun", callback_data='36days')],
+        [InlineKeyboardButton(text="48 kun", callback_data='48days')],
+    ]
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
