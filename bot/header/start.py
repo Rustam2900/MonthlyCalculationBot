@@ -30,7 +30,6 @@ async def send_welcome(message: types.Message):
         results = await asyncio.gather(*tasks)
 
         if all(results):
-            # Foydalanuvchi barcha kanallarga obuna bo'lgan
             buttons = await home_buttons()
             await message.answer(
                 bold("Xizmatlardan birini tanlang"),
@@ -38,11 +37,10 @@ async def send_welcome(message: types.Message):
                 reply_markup=buttons
             )
         else:
-            # Foydalanuvchi obuna bo'lmagan kanallarni topamiz
             unsubscribed_channels = [channel for channel, result in zip(channels, results) if not result]
             buttons = await create_channels_buttons(unsubscribed_channels)
             await message.answer(
-                bold("Iltimos, quyidagi kanallarga obuna bo'ling:"),
+                bold(START_TEXT),
                 parse_mode=ParseMode.MARKDOWN,
                 reply_markup=buttons
             )
@@ -67,14 +65,14 @@ async def check_subscription(call: types.CallbackQuery):
             reply_markup=buttons
         )
     else:
-        # Obuna bo'lmagan kanallarni topamiz
         unsubscribed_channels = [channel for channel, result in zip(channels, results) if not result]
         buttons = await create_channels_buttons(unsubscribed_channels)
         await call.message.edit_text(
-            bold("Iltimos, quyidagi kanallarga obuna bo'ling:"),
+            bold(START_TEXT),
             parse_mode=ParseMode.MARKDOWN,
             reply_markup=buttons
         )
+
 
 # @router.message(CommandStart())
 # async def on_start(message: types.Message, bot: Bot):
@@ -82,3 +80,38 @@ async def check_subscription(call: types.CallbackQuery):
 #     channel = await bot.get_chat(channel_username)
 #     channel_id = channel.id
 #     await message.reply(f"Kanal ID: {channel_id}")
+
+@router.callback_query(lambda c: c.data in ['soatbay'])
+async def process_callback(callback_query: types.CallbackQuery, bot: Bot):
+    await bot.answer_callback_query(callback_query.id)
+    await bot.send_message(callback_query.from_user.id, "Salom soatbay")
+
+
+@router.callback_query(lambda c: c.data in ['home_education'])
+async def process_callback(callback_query: types.CallbackQuery, bot: Bot):
+    await bot.answer_callback_query(callback_query.id)
+    await bot.send_message(callback_query.from_user.id, "Salom uyda_talim")
+
+
+@router.callback_query(lambda c: c.data in ['high_class'])
+async def process_callback(callback_query: types.CallbackQuery, bot: Bot):
+    await bot.answer_callback_query(callback_query.id)
+    await bot.send_message(callback_query.from_user.id, "Salom yuqori_sinf")
+
+
+@router.callback_query(lambda c: c.data in ['primary_class'])
+async def process_callback(callback_query: types.CallbackQuery, bot: Bot):
+    await bot.answer_callback_query(callback_query.id)
+    await bot.send_message(callback_query.from_user.id, "Salom boshlangich_sinf")
+
+
+@router.callback_query(lambda c: c.data in ['decree'])
+async def process_callback(callback_query: types.CallbackQuery, bot: Bot):
+    await bot.answer_callback_query(callback_query.id)
+    await bot.send_message(callback_query.from_user.id, "Salom dekret")
+
+
+@router.callback_query(lambda c: c.data in ['working'])
+async def process_callback(callback_query: types.CallbackQuery, bot: Bot):
+    await bot.answer_callback_query(callback_query.id)
+    await bot.send_message(callback_query.from_user.id, "Salom mehnat_tatili")
