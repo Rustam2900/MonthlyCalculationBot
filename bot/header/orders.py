@@ -122,22 +122,19 @@ async def process_callback(callback_query: types.CallbackQuery, state: FSMContex
     await bot.answer_callback_query(callback_query.id)
 
     if all(results):
-        # Foydalanuvchi barcha kanallarga obuna bo'lgan
         buttons = await beck_days_buttons()
         await state.set_state(WorkingStates.waiting_for_working_days)
         await callback_query.message.edit_text("Mehnat ta'tili davomiyligini tanlang:", reply_markup=buttons)
     else:
-        # Obuna bo'lmagan kanallarga tugmalar yaratish
         unsubscribed_channels = [channel for channel, result in zip(channels, results) if not result]
         buttons = await create_channels_buttons(unsubscribed_channels)
         await callback_query.message.edit_text(
-            bold("Iltimos, barcha kanallarga obuna bo'ling!"),
+            bold(START_TEXT),
             parse_mode=ParseMode.MARKDOWN,
             reply_markup=buttons
         )
 
 
-# Ta'til kunlari tanlanganidan keyingi callback
 @router.callback_query(lambda callback_query: callback_query.data in ['24days', '36days', '48days'])
 async def process_days(callback_query: types.CallbackQuery, state: FSMContext, bot: Bot):
     user_id = callback_query.from_user.id
@@ -149,12 +146,10 @@ async def process_days(callback_query: types.CallbackQuery, state: FSMContext, b
     await bot.answer_callback_query(callback_query.id)
 
     if all(results):
-        # Foydalanuvchi barcha kanallarga obuna bo'lgan
         selected_days = int(callback_query.data[:-4])
         await state.update_data(selected_days=selected_days)
         await state.set_state(WorkingStates.same_salary_question)
 
-        # Bir xil oylikmi yoki yo'qligini so'raymiz
         buttons = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="Ha", callback_data="yes_same_salary")],
             [InlineKeyboardButton(text="Yo'q", callback_data="no_same_salary")]
@@ -165,17 +160,15 @@ async def process_days(callback_query: types.CallbackQuery, state: FSMContext, b
             reply_markup=buttons
         )
     else:
-        # Obuna bo'lmagan kanallarga tugmalar yaratish
         unsubscribed_channels = [channel for channel, result in zip(channels, results) if not result]
         buttons = await create_channels_buttons(unsubscribed_channels)
         await callback_query.message.edit_text(
-            bold("Iltimos, barcha kanallarga obuna bo'ling!"),
+            bold(START_TEXT),
             parse_mode=ParseMode.MARKDOWN,
             reply_markup=buttons
         )
 
 
-# Bir xil oylik savoliga javobni qabul qilish
 @router.callback_query(lambda callback_query: callback_query.data in ['yes_same_salary', 'no_same_salary'])
 async def process_salary_question(callback_query: types.CallbackQuery, state: FSMContext, bot: Bot):
     user_id = callback_query.from_user.id
@@ -191,90 +184,76 @@ async def process_salary_question(callback_query: types.CallbackQuery, state: FS
             await state.set_state(WorkingStates.waiting_for_total_salary)
             await callback_query.message.edit_text("Umumiy oyligingizni kiriting (so'mda):")
         else:
-            await state.update_data(month=8)  # Avgust oyi bilan boshlaymiz
+            await state.update_data(month=8)
             await state.set_state(WorkingStates.waiting_for_monthly_salary)
             await callback_query.message.edit_text("Avgust oyi qancha oylik oldingiz? (so'mda):")
     else:
-        # Obuna bo'lmagan kanallarga tugmalar yaratish
         unsubscribed_channels = [channel for channel, result in zip(channels, results) if not result]
         buttons = await create_channels_buttons(unsubscribed_channels)
         await callback_query.message.edit_text(
-            bold("Iltimos, barcha kanallarga obuna bo'ling!"),
+            bold(START_TEXT),
             parse_mode=ParseMode.MARKDOWN,
             reply_markup=buttons
         )
 
 
-# Bir xil oylik bo'lsa umumiy maoshni qabul qilish
 @router.message(WorkingStates.waiting_for_total_salary)
 async def process_total_salary(message: types.Message, state: FSMContext):
     try:
-        # Kiritilgan summani float formatida olamiz va bo'sh joylarni olib tashlaymiz
         total_salary = float(message.text.replace(" ", ""))
         data = await state.get_data()
-        selected_days = data['selected_days']  # Foydalanuvchi tanlagan kunlar soni
+        selected_days = data['selected_days']
 
-        # Ta'til pulini hisoblash logikasi
-        # Kiritilgan oylikdan jami ta'til puli hisoblanadi
-        oppiska = (total_salary * selected_days) * float(0.9449 / 30)  # 30 kunlik oylik asosida foiz hisoblaymiz
-        qolgan_summasi = oppiska * 0.87  # Qo'lga tegadigan summa (87%)
+        oppiska = (total_salary * selected_days) * float(0.9449 / 30)
+        qolgan_summasi = oppiska * 0.87
 
-        # Foydalanuvchiga natija ko'rsatish
         await message.answer(f"💰 Sizning jami mehnat ta'tili pulingiz (Начисления): {oppiska:.2f} so'm.\n"
                              f"Qo'lga tegishi: {qolgan_summasi:.2f} so'm.")
-        await state.clear()  # Stateni tozalash
-
+        await state.clear()
     except ValueError:
-        # Agar foydalanuvchi noto'g'ri ma'lumot kiritsa, ogohlantiramiz
         await message.answer("Iltimos, to'g'ri raqam kiriting.")
 
 
-# Har oy uchun maosh kiritish jarayoni
 @router.message(WorkingStates.waiting_for_monthly_salary)
 async def process_monthly_salary(message: types.Message, state: FSMContext):
     monthly_salary = int(message.text)
     data = await state.get_data()
     month = data['month']
 
-    # Har oy uchun kiritilgan maoshni saqlaymiz
     if 'monthly_salaries' not in data:
         data['monthly_salaries'] = {}
     data['monthly_salaries'][month] = monthly_salary
 
-    # Oylar davomida yangilash va siklni tugatish sharti
-    if month == 8:  # Avgustni so'rasak, endi sentabrdan dekabrgacha so'raymiz
+    if month == 8:
         month += 1
         await state.update_data(month=month)
         await message.answer(f"{month_name(month)} oyi qancha oylik oldingiz? (so'mda):")
-    elif 9 <= month <= 11:  # Sentabr, Oktabr, Noyabr
+    elif 9 <= month <= 11:
         month += 1
         await state.update_data(month=month)
         await message.answer(f"{month_name(month)} oyi qancha oylik oldingiz? (so'mda):")
-    elif month == 12:  # Dekabrdan keyin yanvargacha qaytamiz
+    elif month == 12:
         month = 1
         await state.update_data(month=month)
         await message.answer(f"{month_name(month)} oyi qancha oylik oldingiz? (so'mda):")
-    elif 1 <= month < 7:  # Yanvardan iyulgacha davom etamiz
+    elif 1 <= month < 7:
         month += 1
         await state.update_data(month=month)
         await message.answer(f"{month_name(month)} oyi qancha oylik oldingiz? (so'mda):")
-    else:  # Iyuldan keyin tugatamiz
+    else:
         await state.update_data(monthly_salaries=data['monthly_salaries'])
         await process_final_salary(message, state)
 
 
-# Har bir oy uchun kiritilgan maoshlar asosida ta'til pulini hisoblash
 async def process_final_salary(message: types.Message, state: FSMContext):
     data = await state.get_data()
     selected_days = data['selected_days']
     monthly_salaries = data['monthly_salaries']
 
-    # Har oy uchun maoshni jamlaymiz
     total_salary = sum(monthly_salaries.values())
 
-    # Ta'til pulini hisoblash
-    oppiska = (total_salary * selected_days) * float(0.9449 / 30)  # Kunlik oppiska
-    qolgan_summasi = oppiska * 0.87  # Qo'lga tegadigan summa
+    oppiska = (total_salary * selected_days) * float(0.9449 / 30)
+    qolgan_summasi = oppiska * 0.87
 
     await message.answer(f"💰 Sizning jami mehnat ta'tili pulingiz (Начисления): {oppiska:.2f} so'm.\n"
                          f"Qo'lga tegishi: {qolgan_summasi:.2f} so'm.")
