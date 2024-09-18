@@ -4,13 +4,12 @@ import logging
 from aiogram import Router, types, Bot
 from aiogram.enums import ParseMode
 from aiogram.fsm.context import FSMContext
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.utils.markdown import bold
 
 from bot.conustant import START_TEXT
 from bot.filters.state import DecreeStates, WorkingStates
 from bot.header.api import create_channels_buttons, check_membership, fetch_channels
-from bot.keyboard.keybord import home_buttons, category_buttons, confirmation_buttons, beck_buttons, beck_days_buttons
+from bot.keyboard.keybord import home_buttons, category_buttons, confirmation_buttons, beck_days_buttons
 
 router = Router()
 logger = logging.getLogger(__name__)
@@ -150,14 +149,9 @@ async def process_days(callback_query: types.CallbackQuery, state: FSMContext, b
         await state.update_data(selected_days=selected_days)
         await state.set_state(WorkingStates.same_salary_question)
 
-        buttons = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="Ha", callback_data="yes_same_salary")],
-            [InlineKeyboardButton(text="Yo'q", callback_data="no_same_salary")]
-        ])
-
         await callback_query.message.edit_text(
             "12 oy davomida bir xil miqdorda maosh oldingizmi?",
-            reply_markup=buttons
+            reply_markup=await confirmation_buttons()
         )
     else:
         unsubscribed_channels = [channel for channel, result in zip(channels, results) if not result]
@@ -169,7 +163,7 @@ async def process_days(callback_query: types.CallbackQuery, state: FSMContext, b
         )
 
 
-@router.callback_query(lambda callback_query: callback_query.data in ['yes_same_salary', 'no_same_salary'])
+@router.callback_query(lambda callback_query: callback_query.data in ['yes', 'no'])
 async def process_salary_question(callback_query: types.CallbackQuery, state: FSMContext, bot: Bot):
     user_id = callback_query.from_user.id
     channels = await fetch_channels()
@@ -180,7 +174,7 @@ async def process_salary_question(callback_query: types.CallbackQuery, state: FS
     await bot.answer_callback_query(callback_query.id)
 
     if all(results):
-        if callback_query.data == 'yes_same_salary':
+        if callback_query.data == 'yes':
             await state.set_state(WorkingStates.waiting_for_total_salary)
             await callback_query.message.edit_text("Umumiy oyligingizni kiriting (so'mda):")
         else:

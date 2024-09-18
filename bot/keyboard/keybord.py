@@ -52,8 +52,9 @@ async def beck_buttons():
 
 async def beck_days_buttons():
     buttons = [
-        [InlineKeyboardButton(text="24 kun", callback_data='24days')],
-        [InlineKeyboardButton(text="36 kun", callback_data='36days')],
+        [InlineKeyboardButton(text="24 kun", callback_data='24days'),
+         InlineKeyboardButton(text="36 kun", callback_data='36days')
+         ],
         [InlineKeyboardButton(text="48 kun", callback_data='48days')],
     ]
     return InlineKeyboardMarkup(inline_keyboard=buttons)
