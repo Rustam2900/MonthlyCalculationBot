@@ -139,33 +139,70 @@ async def process_callback(callback_query: types.CallbackQuery, state: FSMContex
 
 # Ta'til kunlari tanlanganidan keyingi callback
 @router.callback_query(lambda callback_query: callback_query.data in ['24days', '36days', '48days'])
-async def process_days(callback_query: types.CallbackQuery, state: FSMContext):
-    selected_days = int(callback_query.data[:-4])
-    await state.update_data(selected_days=selected_days)
-    await state.set_state(WorkingStates.same_salary_question)
+async def process_days(callback_query: types.CallbackQuery, state: FSMContext, bot: Bot):
+    user_id = callback_query.from_user.id
+    channels = await fetch_channels()
 
-    # Bir xil oylikmi yoki yo'qligini so'raymiz
-    buttons = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="Ha", callback_data="yes_same_salary")],
-        [InlineKeyboardButton(text="Yo'q", callback_data="no_same_salary")]
-    ])
+    tasks = [check_membership(user_id, channel['channel_id']) for channel in channels]
+    results = await asyncio.gather(*tasks)
 
-    await callback_query.message.edit_text(
-        "12 oy davomida bir xil miqdorda maosh oldingizmi?",
-        reply_markup=buttons
-    )
+    await bot.answer_callback_query(callback_query.id)
+
+    if all(results):
+        # Foydalanuvchi barcha kanallarga obuna bo'lgan
+        selected_days = int(callback_query.data[:-4])
+        await state.update_data(selected_days=selected_days)
+        await state.set_state(WorkingStates.same_salary_question)
+
+        # Bir xil oylikmi yoki yo'qligini so'raymiz
+        buttons = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="Ha", callback_data="yes_same_salary")],
+            [InlineKeyboardButton(text="Yo'q", callback_data="no_same_salary")]
+        ])
+
+        await callback_query.message.edit_text(
+            "12 oy davomida bir xil miqdorda maosh oldingizmi?",
+            reply_markup=buttons
+        )
+    else:
+        # Obuna bo'lmagan kanallarga tugmalar yaratish
+        unsubscribed_channels = [channel for channel, result in zip(channels, results) if not result]
+        buttons = await create_channels_buttons(unsubscribed_channels)
+        await callback_query.message.edit_text(
+            bold("Iltimos, barcha kanallarga obuna bo'ling!"),
+            parse_mode=ParseMode.MARKDOWN,
+            reply_markup=buttons
+        )
 
 
 # Bir xil oylik savoliga javobni qabul qilish
 @router.callback_query(lambda callback_query: callback_query.data in ['yes_same_salary', 'no_same_salary'])
-async def process_salary_question(callback_query: types.CallbackQuery, state: FSMContext):
-    if callback_query.data == 'yes_same_salary':
-        await state.set_state(WorkingStates.waiting_for_total_salary)
-        await callback_query.message.edit_text("Umumiy oyligingizni kiriting (so'mda):")
+async def process_salary_question(callback_query: types.CallbackQuery, state: FSMContext, bot: Bot):
+    user_id = callback_query.from_user.id
+    channels = await fetch_channels()
+
+    tasks = [check_membership(user_id, channel['channel_id']) for channel in channels]
+    results = await asyncio.gather(*tasks)
+
+    await bot.answer_callback_query(callback_query.id)
+
+    if all(results):
+        if callback_query.data == 'yes_same_salary':
+            await state.set_state(WorkingStates.waiting_for_total_salary)
+            await callback_query.message.edit_text("Umumiy oyligingizni kiriting (so'mda):")
+        else:
+            await state.update_data(month=8)  # Avgust oyi bilan boshlaymiz
+            await state.set_state(WorkingStates.waiting_for_monthly_salary)
+            await callback_query.message.edit_text("Avgust oyi qancha oylik oldingiz? (so'mda):")
     else:
-        await state.update_data(month=8)  # Avgust oyi bilan boshlaymiz
-        await state.set_state(WorkingStates.waiting_for_monthly_salary)
-        await callback_query.message.edit_text("Avgust oyi qancha oylik oldingiz? (so'mda):")
+        # Obuna bo'lmagan kanallarga tugmalar yaratish
+        unsubscribed_channels = [channel for channel, result in zip(channels, results) if not result]
+        buttons = await create_channels_buttons(unsubscribed_channels)
+        await callback_query.message.edit_text(
+            bold("Iltimos, barcha kanallarga obuna bo'ling!"),
+            parse_mode=ParseMode.MARKDOWN,
+            reply_markup=buttons
+        )
 
 
 # Bir xil oylik bo'lsa umumiy maoshni qabul qilish
