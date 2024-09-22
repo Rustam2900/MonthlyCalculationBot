@@ -9,7 +9,7 @@ from aiogram.utils.markdown import bold
 from bot.conustant import START_TEXT
 from bot.filters.state import DecreeStates, WorkingStates, SalaryStates
 from bot.header.api import create_channels_buttons, check_membership, fetch_channels
-from bot.keyboard.keybord import home_buttons, category_buttons, confirmation_buttons, beck_days_buttons
+from bot.keyboard.keybord import home_buttons, category_buttons, confirmation_buttons, beck_days_buttons, beck_buttons
 
 router = Router()
 logger = logging.getLogger(__name__)
@@ -41,30 +41,30 @@ async def process_callback(callback_query: types.CallbackQuery, bot: Bot):
         )
 
 
-@router.callback_query(lambda callback_query: callback_query.data in ['high_category'])
-async def process_callback(callback_query: types.CallbackQuery, bot: Bot):
-    user_id = callback_query.from_user.id
-    channels = await fetch_channels()
-
-    tasks = [check_membership(user_id, channel['channel_id']) for channel in channels]
-    results = await asyncio.gather(*tasks)
-
-    await bot.answer_callback_query(callback_query.id)
-
-    if all(results):
-        buttons = await confirmation_buttons()
-        await callback_query.message.edit_text(
-            "Xizmatlardan birini tanlang",
-            reply_markup=buttons
-        )
-    else:
-        unsubscribed_channels = [channel for channel, result in zip(channels, results) if not result]
-        buttons = await create_channels_buttons(unsubscribed_channels)
-        await callback_query.message.edit_text(
-            bold(START_TEXT),
-            parse_mode=ParseMode.MARKDOWN,
-            reply_markup=buttons
-        )
+# @router.callback_query(lambda callback_query: callback_query.data in ['high_category'])
+# async def process_callback(callback_query: types.CallbackQuery, bot: Bot):
+#     user_id = callback_query.from_user.id
+#     channels = await fetch_channels()
+#
+#     tasks = [check_membership(user_id, channel['channel_id']) for channel in channels]
+#     results = await asyncio.gather(*tasks)
+#
+#     await bot.answer_callback_query(callback_query.id)
+#
+#     if all(results):
+#         buttons = await confirmation_buttons()
+#         await callback_query.message.edit_text(
+#             "Xizmatlardan birini tanlang",
+#             reply_markup=buttons
+#         )
+#     else:
+#         unsubscribed_channels = [channel for channel, result in zip(channels, results) if not result]
+#         buttons = await create_channels_buttons(unsubscribed_channels)
+#         await callback_query.message.edit_text(
+#             bold(START_TEXT),
+#             parse_mode=ParseMode.MARKDOWN,
+#             reply_markup=buttons
+#         )
 
 
 @router.callback_query(lambda callback_query: callback_query.data in ['decree'])
@@ -263,7 +263,7 @@ def month_name(month):
 
 
 @router.callback_query(lambda callback_query: callback_query.data in ['primary_class'])
-async def process_callback(callback_query: types.CallbackQuery, bot: Bot):
+async def process_callback(callback_query: types.CallbackQuery, bot: Bot, state: FSMContext):
     user_id = callback_query.from_user.id
     channels = await fetch_channels()
 
@@ -275,10 +275,9 @@ async def process_callback(callback_query: types.CallbackQuery, bot: Bot):
     if all(results):
         buttons = await category_buttons()
         await callback_query.message.edit_text(
-            "Xizmatlardan birini tanlang",
+            "Toifangizni tanlang:",
             reply_markup=buttons
         )
-
     else:
         unsubscribed_channels = [channel for channel, result in zip(channels, results) if not result]
         buttons = await create_channels_buttons(unsubscribed_channels)
@@ -290,7 +289,7 @@ async def process_callback(callback_query: types.CallbackQuery, bot: Bot):
 
 
 @router.callback_query(lambda callback_query: callback_query.data in ['high_category'])
-async def process_callback(callback_query: types.CallbackQuery, bot: Bot):
+async def process_callback(callback_query: types.CallbackQuery, bot: Bot, state: FSMContext, message: types.Message):
     user_id = callback_query.from_user.id
     channels = await fetch_channels()
 
@@ -300,9 +299,16 @@ async def process_callback(callback_query: types.CallbackQuery, bot: Bot):
     await bot.answer_callback_query(callback_query.id)
 
     if all(results):
-        await callback_query.message.set_state(
-            "Boshlang'ich sinfga 1 haftada necha soat dars o'tasiz? Raqamlarda yuboring:")
-        await SalaryStates.selecting_hours.edit_text()
+        user_input = message.text
+        if not user_input.isdigit():
+            await message.answer("Iltimos, faqat raqam kiriting.")
+            return
+        await state.update_data(teaching_hours=int(user_input))
+        await state.set_state(SalaryStates.teaching_hours)
+        await callback_query.message.answer(
+            "Boshlang'ich sinfga 1 haftada necha soat dars o'tasiz? Raqamlarda yuboring:",
+            reply_markup=await beck_buttons())
+
     else:
         unsubscribed_channels = [channel for channel, result in zip(channels, results) if not result]
         buttons = await create_channels_buttons(unsubscribed_channels)
@@ -313,128 +319,160 @@ async def process_callback(callback_query: types.CallbackQuery, bot: Bot):
         )
 
 
-@router.message(SalaryStates.selecting_hours)
-async def handle_hours(message: types.Message, state: FSMContext):
-    hours = int(message.text)
-    await state.update_data(hours=hours)
-
+@router.message(SalaryStates.teaching_hours)
+async def enter_teaching_hours(message: types.Message, state: FSMContext):
+    await state.update_data(teaching_hours=int(message.text))
+    await state.set_state(SalaryStates.class_supervisor)
     await message.answer("Sinf rahbarimisiz? (Ha/Yo'q)")
-    await SalaryStates.checking_class_leader.edit_text()
 
 
-@router.message(SalaryStates.checking_class_leader)
-async def handle_class_leader(message: types.Message, state: FSMContext):
-    is_class_leader = message.text.lower() == 'ha'
-    await state.update_data(is_class_leader=is_class_leader)
-
-    await message.answer("Sinfingizdagi o'quvchilar sonini tanlang: (1-15, 16-20, va hokazo)")
-    await SalaryStates.selecting_students.edit_text()
-
-
-@router.message(SalaryStates.selecting_students)
-async def handle_students(message: types.Message, state: FSMContext):
-    students = message.text
-    await state.update_data(students=students)
-
-    # Proceed to calculate salary
-    await calculate_salary(message, state)
+@router.message(SalaryStates.class_supervisor)
+async def class_supervisor_answer(message: types.Message, state: FSMContext):
+    is_supervisor = message.text.lower() == "ha"
+    await state.update_data(class_supervisor=is_supervisor)
+    await state.set_state(SalaryStates.number_of_students)
+    await message.answer("Sinfingizdagi o'quvchilar sonini kiriting :")
 
 
+@router.message(SalaryStates.number_of_students)
+async def enter_number_of_students(message: types.Message, state: FSMContext):
+    await state.update_data(number_of_students=message.text)
+    await state.set_state(SalaryStates.check_notebooks)
+    await message.answer("Daftar tekshirasizmi? (Ha/Yo'q)")
+
+
+@router.message(SalaryStates.check_notebooks)
+async def check_notebooks_answer(message: types.Message, state: FSMContext):
+    checks_notebooks = message.text.lower() == "ha"
+    await state.update_data(check_notebooks=checks_notebooks)
+    await state.set_state(SalaryStates.notebooks_checked)
+    await message.answer("Necha nafar o'quvchi daftari tekshiriladi? Raqamlarda kiriting:")
+
+
+@router.message(SalaryStates.notebooks_checked)
+async def enter_notebooks_checked(message: types.Message, state: FSMContext):
+    await state.update_data(notebooks_checked=int(message.text))
+    await state.set_state(SalaryStates.additional_duties)
+    await message.answer("Kabinet mudirlik vazifasi ham bormi? (Ha/Yo'q)")
+
+
+@router.message(SalaryStates.additional_duties)
+async def additional_duties_answer(message: types.Message, state: FSMContext):
+    additional_duties = message.text.lower() == "ha"
+    await state.update_data(additional_duties=additional_duties)
+    await state.set_state(SalaryStates.bonus_percentage)
+    await message.answer("Ustama foizi (barcha sertifikatlar foizi yig'indisi) Raqamlarda kiriting:")
+
+
+@router.message(SalaryStates.bonus_percentage)
+async def enter_bonus_percentage(message: types.Message, state: FSMContext):
+    await state.update_data(bonus_percentage=float(message.text))
+    await state.set_state(SalaryStates.calculate_salary)
+    await message.answer("Hisob-kitobni boshlaymizmi? (Ha/Yo'q)")
+
+
+@router.message(SalaryStates.calculate_salary)
 async def calculate_salary(message: types.Message, state: FSMContext):
-    data = await state.get_data()
-    hours = data['hours']
-    is_class_leader = data['is_class_leader']
-    students = int(data['students'].split('-')[0])  # Assuming input like "1-15", taking the lower bound
+    if message.text.lower() == "ha":
+        data = await state.get_data()
+        teaching_hours = data['teaching_hours']
+        is_supervisor = data['class_supervisor']
+        number_of_students = int(data['number_of_students'].split('-')[0])  # e.g., "1-15" -> 1
+        checks_notebooks = data['check_notebooks']
+        notebooks_checked = data['notebooks_checked']
+        additional_duties = data['additional_duties']
+        bonus_percentage = data['bonus_percentage']
 
-    # Define payment structure
-    base_payment_per_hour = 60000  # Base rate per hour
-    class_leader_bonus = 20000  # Bonus for being a class leader
-    student_bonus = 5000  # Bonus per student
+        base_rate = 100000  # Example base rate per hour
+        salary = teaching_hours * base_rate
 
-    # Calculate total salary
-    total_payment = (hours * base_payment_per_hour)
-    if is_class_leader:
-        total_payment += class_leader_bonus
-    total_payment += (students * student_bonus)
+        if is_supervisor:
+            salary += 50000  # Example additional pay for being a supervisor
+        salary += number_of_students * 10000  # Example additional pay per student
+        if checks_notebooks:
+            salary += notebooks_checked * 5000  # Example additional pay per notebook checked
+        if additional_duties:
+            salary += 20000  # Example additional pay for additional duties
+        salary += (salary * bonus_percentage / 100)  # Apply bonus percentage
 
-    # Send the result to the user
-    await message.answer(f"👦 Boshlang'ich sinf (Начисления): {total_payment:.2f} so'm")
+        await message.answer(f"Sizning jami oylik maoshingiz: {salary:.2f} so'm")
+    else:
+        await message.answer("Hisoblashdan voz kechildi.")
     await state.clear()
 
-
-@router.callback_query(lambda callback_query: callback_query.data in ['high_class'])
-async def process_callback(callback_query: types.CallbackQuery, bot: Bot):
-    user_id = callback_query.from_user.id
-    channels = await fetch_channels()
-
-    tasks = [check_membership(user_id, channel['channel_id']) for channel in channels]
-    results = await asyncio.gather(*tasks)
-
-    await bot.answer_callback_query(callback_query.id)
-
-    if all(results):
-        buttons = await category_buttons()
-        await callback_query.message.edit_text(
-            "Xizmatlardan birini tanlang",
-            reply_markup=buttons
-        )
-    else:
-        unsubscribed_channels = [channel for channel, result in zip(channels, results) if not result]
-        buttons = await create_channels_buttons(unsubscribed_channels)
-        await callback_query.message.edit_text(
-            bold(START_TEXT),
-            parse_mode=ParseMode.MARKDOWN,
-            reply_markup=buttons
-        )
-
-
-@router.callback_query(lambda callback_query: callback_query.data in ['home_education'])
-async def process_callback(callback_query: types.CallbackQuery, bot: Bot):
-    user_id = callback_query.from_user.id
-    channels = await fetch_channels()
-
-    tasks = [check_membership(user_id, channel['channel_id']) for channel in channels]
-    results = await asyncio.gather(*tasks)
-
-    await bot.answer_callback_query(callback_query.id)
-
-    if all(results):
-        buttons = await category_buttons()
-        await callback_query.message.edit_text(
-            "Xizmatlardan birini tanlang",
-            reply_markup=buttons
-        )
-    else:
-        unsubscribed_channels = [channel for channel, result in zip(channels, results) if not result]
-        buttons = await create_channels_buttons(unsubscribed_channels)
-        await callback_query.message.edit_text(
-            bold(START_TEXT),
-            parse_mode=ParseMode.MARKDOWN,
-            reply_markup=buttons
-        )
-
-
-@router.callback_query(lambda callback_query: callback_query.data in ['soatbay'])
-async def process_callback(callback_query: types.CallbackQuery, bot: Bot):
-    user_id = callback_query.from_user.id
-    channels = await fetch_channels()
-
-    tasks = [check_membership(user_id, channel['channel_id']) for channel in channels]
-    results = await asyncio.gather(*tasks)
-
-    await bot.answer_callback_query(callback_query.id)
-
-    if all(results):
-        buttons = await category_buttons()
-        await callback_query.message.edit_text(
-            "Xizmatlardan birini tanlang",
-            reply_markup=buttons
-        )
-    else:
-        unsubscribed_channels = [channel for channel, result in zip(channels, results) if not result]
-        buttons = await create_channels_buttons(unsubscribed_channels)
-        await callback_query.message.edit_text(
-            bold(START_TEXT),
-            parse_mode=ParseMode.MARKDOWN,
-            reply_markup=buttons
-        )
+# @router.callback_query(lambda callback_query: callback_query.data in ['high_class'])
+# async def process_callback(callback_query: types.CallbackQuery, bot: Bot):
+#     user_id = callback_query.from_user.id
+#     channels = await fetch_channels()
+#
+#     tasks = [check_membership(user_id, channel['channel_id']) for channel in channels]
+#     results = await asyncio.gather(*tasks)
+#
+#     await bot.answer_callback_query(callback_query.id)
+#
+#     if all(results):
+#         buttons = await category_buttons()
+#         await callback_query.message.edit_text(
+#             "Xizmatlardan birini tanlang",
+#             reply_markup=buttons
+#         )
+#     else:
+#         unsubscribed_channels = [channel for channel, result in zip(channels, results) if not result]
+#         buttons = await create_channels_buttons(unsubscribed_channels)
+#         await callback_query.message.edit_text(
+#             bold(START_TEXT),
+#             parse_mode=ParseMode.MARKDOWN,
+#             reply_markup=buttons
+#         )
+#
+#
+# @router.callback_query(lambda callback_query: callback_query.data in ['home_education'])
+# async def process_callback(callback_query: types.CallbackQuery, bot: Bot):
+#     user_id = callback_query.from_user.id
+#     channels = await fetch_channels()
+#
+#     tasks = [check_membership(user_id, channel['channel_id']) for channel in channels]
+#     results = await asyncio.gather(*tasks)
+#
+#     await bot.answer_callback_query(callback_query.id)
+#
+#     if all(results):
+#         buttons = await category_buttons()
+#         await callback_query.message.edit_text(
+#             "Xizmatlardan birini tanlang",
+#             reply_markup=buttons
+#         )
+#     else:
+#         unsubscribed_channels = [channel for channel, result in zip(channels, results) if not result]
+#         buttons = await create_channels_buttons(unsubscribed_channels)
+#         await callback_query.message.edit_text(
+#             bold(START_TEXT),
+#             parse_mode=ParseMode.MARKDOWN,
+#             reply_markup=buttons
+#         )
+#
+#
+# @router.callback_query(lambda callback_query: callback_query.data in ['soatbay'])
+# async def process_callback(callback_query: types.CallbackQuery, bot: Bot):
+#     user_id = callback_query.from_user.id
+#     channels = await fetch_channels()
+#
+#     tasks = [check_membership(user_id, channel['channel_id']) for channel in channels]
+#     results = await asyncio.gather(*tasks)
+#
+#     await bot.answer_callback_query(callback_query.id)
+#
+#     if all(results):
+#         buttons = await category_buttons()
+#         await callback_query.message.edit_text(
+#             "Xizmatlardan birini tanlang",
+#             reply_markup=buttons
+#         )
+#     else:
+#         unsubscribed_channels = [channel for channel, result in zip(channels, results) if not result]
+#         buttons = await create_channels_buttons(unsubscribed_channels)
+#         await callback_query.message.edit_text(
+#             bold(START_TEXT),
+#             parse_mode=ParseMode.MARKDOWN,
+#             reply_markup=buttons
+#         )

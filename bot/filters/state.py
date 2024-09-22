@@ -13,12 +13,11 @@ class WorkingStates(StatesGroup):
 
 
 class SalaryStates(StatesGroup):
-    selecting_hours = State()
-    checking_class_leader = State()
-    selecting_students = State()
-    check_notebook = State()
-    selecting_students_notebook = State()
-    role_cabinets = State()
-    certificates_sum = State()
-    salary_sum = State()
-    calculating_salary = State()
+    teaching_hours = State()
+    class_supervisor = State()
+    number_of_students = State()
+    check_notebooks = State()
+    notebooks_checked = State()
+    additional_duties = State()
+    bonus_percentage = State()
+    calculate_salary = State()
