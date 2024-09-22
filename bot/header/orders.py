@@ -7,7 +7,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.utils.markdown import bold
 
 from bot.conustant import START_TEXT
-from bot.filters.state import DecreeStates, WorkingStates
+from bot.filters.state import DecreeStates, WorkingStates, SalaryStates
 from bot.header.api import create_channels_buttons, check_membership, fetch_channels
 from bot.keyboard.keybord import home_buttons, category_buttons, confirmation_buttons, beck_days_buttons
 
@@ -278,6 +278,7 @@ async def process_callback(callback_query: types.CallbackQuery, bot: Bot):
             "Xizmatlardan birini tanlang",
             reply_markup=buttons
         )
+
     else:
         unsubscribed_channels = [channel for channel, result in zip(channels, results) if not result]
         buttons = await create_channels_buttons(unsubscribed_channels)
@@ -287,31 +288,153 @@ async def process_callback(callback_query: types.CallbackQuery, bot: Bot):
             reply_markup=buttons
         )
 
-# @router.callback_query(lambda c: c.data in ['home_education'])
-# async def process_callback(callback_query: types.CallbackQuery, bot: Bot):
-#     await bot.answer_callback_query(callback_query.id)
-#     await bot.send_message(callback_query.from_user.id, "Salom uyda_talim")
-#
-#
-# @router.callback_query(lambda c: c.data in ['high_class'])
-# async def process_callback(callback_query: types.CallbackQuery, bot: Bot):
-#     await bot.answer_callback_query(callback_query.id)
-#     await bot.send_message(callback_query.from_user.id, "Salom yuqori_sinf")
-#
-#
-# @router.callback_query(lambda c: c.data in ['primary_class'])
-# async def process_callback(callback_query: types.CallbackQuery, bot: Bot):
-#     await bot.answer_callback_query(callback_query.id)
-#     await bot.send_message(callback_query.from_user.id, "Salom boshlangich_sinf")
-#
-#
-# @router.callback_query(lambda c: c.data in ['decree'])
-# async def process_callback(callback_query: types.CallbackQuery, bot: Bot):
-#     await bot.answer_callback_query(callback_query.id)
-#     await bot.send_message(callback_query.from_user.id, "Salom dekret")
-#
-#
-# @router.callback_query(lambda c: c.data in ['working'])
-# async def process_callback(callback_query: types.CallbackQuery, bot: Bot):
-#     await bot.answer_callback_query(callback_query.id)
-#     await bot.send_message(callback_query.from_user.id, "Salom mehnat_tatili")
+
+@router.callback_query(lambda callback_query: callback_query.data in ['high_category'])
+async def process_callback(callback_query: types.CallbackQuery, bot: Bot):
+    user_id = callback_query.from_user.id
+    channels = await fetch_channels()
+
+    tasks = [check_membership(user_id, channel['channel_id']) for channel in channels]
+    results = await asyncio.gather(*tasks)
+
+    await bot.answer_callback_query(callback_query.id)
+
+    if all(results):
+        await callback_query.message.set_state(
+            "Boshlang'ich sinfga 1 haftada necha soat dars o'tasiz? Raqamlarda yuboring:")
+        await SalaryStates.selecting_hours.edit_text()
+    else:
+        unsubscribed_channels = [channel for channel, result in zip(channels, results) if not result]
+        buttons = await create_channels_buttons(unsubscribed_channels)
+        await callback_query.message.edit_text(
+            bold(START_TEXT),
+            parse_mode=ParseMode.MARKDOWN,
+            reply_markup=buttons
+        )
+
+
+@router.message(SalaryStates.selecting_hours)
+async def handle_hours(message: types.Message, state: FSMContext):
+    hours = int(message.text)
+    await state.update_data(hours=hours)
+
+    await message.answer("Sinf rahbarimisiz? (Ha/Yo'q)")
+    await SalaryStates.checking_class_leader.edit_text()
+
+
+@router.message(SalaryStates.checking_class_leader)
+async def handle_class_leader(message: types.Message, state: FSMContext):
+    is_class_leader = message.text.lower() == 'ha'
+    await state.update_data(is_class_leader=is_class_leader)
+
+    await message.answer("Sinfingizdagi o'quvchilar sonini tanlang: (1-15, 16-20, va hokazo)")
+    await SalaryStates.selecting_students.edit_text()
+
+
+@router.message(SalaryStates.selecting_students)
+async def handle_students(message: types.Message, state: FSMContext):
+    students = message.text
+    await state.update_data(students=students)
+
+    # Proceed to calculate salary
+    await calculate_salary(message, state)
+
+
+async def calculate_salary(message: types.Message, state: FSMContext):
+    data = await state.get_data()
+    hours = data['hours']
+    is_class_leader = data['is_class_leader']
+    students = int(data['students'].split('-')[0])  # Assuming input like "1-15", taking the lower bound
+
+    # Define payment structure
+    base_payment_per_hour = 60000  # Base rate per hour
+    class_leader_bonus = 20000  # Bonus for being a class leader
+    student_bonus = 5000  # Bonus per student
+
+    # Calculate total salary
+    total_payment = (hours * base_payment_per_hour)
+    if is_class_leader:
+        total_payment += class_leader_bonus
+    total_payment += (students * student_bonus)
+
+    # Send the result to the user
+    await message.answer(f"👦 Boshlang'ich sinf (Начисления): {total_payment:.2f} so'm")
+    await state.clear()
+
+
+@router.callback_query(lambda callback_query: callback_query.data in ['high_class'])
+async def process_callback(callback_query: types.CallbackQuery, bot: Bot):
+    user_id = callback_query.from_user.id
+    channels = await fetch_channels()
+
+    tasks = [check_membership(user_id, channel['channel_id']) for channel in channels]
+    results = await asyncio.gather(*tasks)
+
+    await bot.answer_callback_query(callback_query.id)
+
+    if all(results):
+        buttons = await category_buttons()
+        await callback_query.message.edit_text(
+            "Xizmatlardan birini tanlang",
+            reply_markup=buttons
+        )
+    else:
+        unsubscribed_channels = [channel for channel, result in zip(channels, results) if not result]
+        buttons = await create_channels_buttons(unsubscribed_channels)
+        await callback_query.message.edit_text(
+            bold(START_TEXT),
+            parse_mode=ParseMode.MARKDOWN,
+            reply_markup=buttons
+        )
+
+
+@router.callback_query(lambda callback_query: callback_query.data in ['home_education'])
+async def process_callback(callback_query: types.CallbackQuery, bot: Bot):
+    user_id = callback_query.from_user.id
+    channels = await fetch_channels()
+
+    tasks = [check_membership(user_id, channel['channel_id']) for channel in channels]
+    results = await asyncio.gather(*tasks)
+
+    await bot.answer_callback_query(callback_query.id)
+
+    if all(results):
+        buttons = await category_buttons()
+        await callback_query.message.edit_text(
+            "Xizmatlardan birini tanlang",
+            reply_markup=buttons
+        )
+    else:
+        unsubscribed_channels = [channel for channel, result in zip(channels, results) if not result]
+        buttons = await create_channels_buttons(unsubscribed_channels)
+        await callback_query.message.edit_text(
+            bold(START_TEXT),
+            parse_mode=ParseMode.MARKDOWN,
+            reply_markup=buttons
+        )
+
+
+@router.callback_query(lambda callback_query: callback_query.data in ['soatbay'])
+async def process_callback(callback_query: types.CallbackQuery, bot: Bot):
+    user_id = callback_query.from_user.id
+    channels = await fetch_channels()
+
+    tasks = [check_membership(user_id, channel['channel_id']) for channel in channels]
+    results = await asyncio.gather(*tasks)
+
+    await bot.answer_callback_query(callback_query.id)
+
+    if all(results):
+        buttons = await category_buttons()
+        await callback_query.message.edit_text(
+            "Xizmatlardan birini tanlang",
+            reply_markup=buttons
+        )
+    else:
+        unsubscribed_channels = [channel for channel, result in zip(channels, results) if not result]
+        buttons = await create_channels_buttons(unsubscribed_channels)
+        await callback_query.message.edit_text(
+            bold(START_TEXT),
+            parse_mode=ParseMode.MARKDOWN,
+            reply_markup=buttons
+        )
