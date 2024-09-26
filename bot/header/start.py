@@ -1,14 +1,14 @@
 import asyncio
 import logging
 
-from aiogram import Router, types, Bot
+from aiogram import Router, types
 from aiogram.filters import CommandStart
 from aiogram.enums import ParseMode
 from aiogram.utils.markdown import bold
 
 from bot.conustant import START_TEXT
 from bot.header.api import create_channels_buttons, save_user_data, check_membership, fetch_channels
-from bot.keyboard.keybord import home_buttons, category_buttons
+from bot.keyboard.keybord import home_buttons
 
 router = Router()
 logger = logging.getLogger(__name__)
